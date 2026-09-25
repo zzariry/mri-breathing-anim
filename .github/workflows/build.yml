@@ -1,6 +1,9 @@
 # Builds MRI_instructions for Windows (.exe) and macOS (.app) on GitHub's machines.
-# Push this folder to a GitHub repo, then: Actions tab -> "build" -> Run workflow
-# (also runs on every push). Download the results from the run's "Artifacts".
+#
+# - Every push: builds, downloadable from the run's "Artifacts" (logged-in, 90 days).
+# - Pushing a tag like v1.0 (git tag v1.0 && git push origin v1.0): also publishes a
+#   GitHub Release with the zips, downloadable by anyone (if the repo is public) at
+#   https://github.com/<user>/<repo>/releases/latest
 name: build
 on:
   push:
@@ -23,10 +26,30 @@ jobs:
       - run: ./build.sh
         env:
           PYTHON: python
-      # zip the .app with ditto so macOS permissions survive the artifact upload
+      - if: runner.os == 'Windows'
+        run: cd dist && 7z a MRI_instructions_windows.zip MRI_instructions.exe config_example.json
+      # ditto keeps the macOS permissions / app structure inside the zip
       - if: runner.os == 'macOS'
-        run: cd dist && ditto -c -k --keepParent MRI_instructions.app MRI_instructions_mac.zip && rm -rf MRI_instructions.app
+        run: |
+          cd dist
+          mkdir MRI_instructions_mac && mv MRI_instructions.app config_example.json MRI_instructions_mac/
+          ditto -c -k --keepParent MRI_instructions_mac MRI_instructions_mac.zip
       - uses: actions/upload-artifact@v4
         with:
           name: MRI_instructions-${{ runner.os }}
-          path: dist/
+          path: dist/*.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: "*.zip"
+          generate_release_notes: true
