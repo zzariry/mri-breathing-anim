@@ -7,12 +7,13 @@ settings window comes back for the next one. "Save as default" writes config.jso
 
 Two protocols:
 
-  "breathhold" : REST 30 s | [ NORMAL 20 s | FAST 20 s | HOLD 20 s ] x N | REST >= 30 s
-  "paced"      : REST 30 s | [ FAST 20 s | NORMAL 20 s | SLOW 20 s ] x N | REST >= 30 s
+  "breathhold" : FREE 30 s | [ FAST 10 s | HOLD 20 s | FREE 30 s ] x N | FREE >= 30 s
+  "paced"      : FREE 30 s | FAST 20 s | NORMAL 20 s | SLOW 20 s | FAST ... | FREE >= 30 s
                  guided by a sine curve scrolling right -> left; the subject follows the
                  dot (curve going up = breathe IN, going down = breathe OUT).
 
-- The cycle is repeated as many times as fits between REST_START and REST_END; the
+- Each protocol has: rest_start, a cycle of phases, rest_between (between two cycles)
+  and rest_end. The cycle is repeated as many times as fits in SCAN_DURATION; the
   remaining time is added to the final rest.
 - WARNING_TIME seconds before every change of instruction a "Get ready" banner with
   a countdown is shown.
@@ -42,12 +43,9 @@ CONFIG = {
     "PROTOCOL": "breathhold",    # key of PROTOCOLS below
     "SHOW_LAUNCHER": True,       # settings window before each run (False = run directly)
     "SCAN_DURATION": 300,        # s, total duration of the animation (scan)
-    "REST_START": 30,            # s, rest at the beginning
-    "REST_END": 30,              # s, minimum rest at the end
-    "DELAY_BETWEEN": 0,          # s, extra rest between two cycles (0 = cycles back to back)
     "WARNING_TIME": 5,           # s, warning shown before each change of instruction
-    "SCREEN_WIDTH": 1920,
-    "SCREEN_HEIGHT": 1080,
+    "SCREEN_WIDTH": 0,           # px, 0 = auto (native resolution of the chosen screen)
+    "SCREEN_HEIGHT": 0,          # px, 0 = auto
     "FULLSCREEN": True,
     "DISPLAY_INDEX": 0,          # 0 = main screen, 1 = second screen (projector) ...
     "MIRROR": False,             # flip horizontally (for mirror-based MRI setups)
@@ -83,17 +81,26 @@ ACTIONS = {
     "paced_slow":   {"text": "BREATHE SLOWLY",        "anim": "sine", "rate": 6,  "color": [130, 60, 180]},
 }
 
-# rest: action used for the rest periods; cycle: [action, duration in s], repeated.
+# rest: action used for the rest (free breathing) periods
+# rest_start / rest_between / rest_end: s of rest at the start, between two cycles, at the end (minimum)
+# cycle: [action, duration in s], repeated as many times as fits in SCAN_DURATION
 PROTOCOLS = {
     "breathhold": {
         "rest": "rest",
-        "cycle": [["normal", 20], ["fast", 20], ["hold", 20]],
+        "rest_start": 30,
+        "cycle": [["fast", 10], ["hold", 20], ["rest", 30]],
+        "rest_between": 0,
+        "rest_end": 30,
     },
     "paced": {
         "rest": "paced_rest",
+        "rest_start": 30,
         "cycle": [["paced_fast", 20], ["paced_normal", 20], ["paced_slow", 20]],
+        "rest_between": 0,
+        "rest_end": 30,
     },
 }
+REST_DEFAULTS = {"rest_start": 30, "rest_between": 0, "rest_end": 30}
 
 WAITING_TEXT = "Please stay still\nThe scan will start soon"
 END_TEXT = "Scan finished\nThank you"
@@ -103,9 +110,12 @@ END_TEXT = "Scan finished\nThank you"
 # HELPERS
 # =============================================================================
 def base_dir():
-    """Folder containing the exe (frozen) or this script."""
+    """Folder containing the exe / the .app (frozen) or this script."""
     if getattr(sys, "frozen", False):
-        return os.path.dirname(sys.executable)
+        path = os.path.dirname(sys.executable)
+        if path.endswith(".app/Contents/MacOS"):        # macOS app bundle
+            path = os.path.dirname(os.path.dirname(os.path.dirname(path)))
+        return path
     return os.path.dirname(os.path.abspath(__file__))
 
 
@@ -133,31 +143,39 @@ def first_line(text):
 
 
 def build_timeline(protocol):
-    """List of segments: dict(name, start, end, **action)."""
+    """Returns (segments, number of cycles). Segment: dict(name, start, end, **action).
+    Consecutive segments of the same action are merged (e.g. cycle rest + final rest)."""
     proto = PROTOCOLS[protocol]
     total = CONFIG["SCAN_DURATION"]
     cycle = proto["cycle"]
     cycle_dur = sum(d for _, d in cycle)
     timeline = []
 
-    def add(name, dur):
-        start = timeline[-1]["end"] if timeline else 0.0
-        timeline.append(dict(ACTIONS[name], name=name, start=start, end=start + dur))
+    def end():
+        return timeline[-1]["end"] if timeline else 0.0
 
-    add(proto["rest"], CONFIG["REST_START"])
+    def add(name, dur):
+        if dur <= 0:
+            return
+        if timeline and timeline[-1]["name"] == name:
+            timeline[-1]["end"] += dur
+            return
+        timeline.append(dict(ACTIONS[name], name=name, start=end(), end=end() + dur))
+
+    rest = {k: proto.get(k, v) for k, v in REST_DEFAULTS.items()}
+    add(proto["rest"], rest["rest_start"])
     n = 0
     while True:
-        gap = CONFIG["DELAY_BETWEEN"] if n else 0
-        if timeline[-1]["end"] + gap + cycle_dur + CONFIG["REST_END"] > total:
+        gap = rest["rest_between"] if n else 0
+        if end() + gap + cycle_dur + rest["rest_end"] > total:
             break
         if gap:
             add(proto["rest"], gap)
         for name, dur in cycle:
             add(name, dur)
         n += 1
-    if timeline[-1]["end"] < total:
-        add(proto["rest"], total - timeline[-1]["end"])
-    return timeline
+    add(proto["rest"], total - end())
+    return timeline, n
 
 
 class BreathCurve:
@@ -360,26 +378,37 @@ def launcher():
     combo.bind("<<ComboboxSelected>>", lambda e: build_phases())
     number(box, 1, "Scan duration", "SCAN_DURATION")
     number(box, 1, "Warning before change", "WARNING_TIME", col=3)
-    number(box, 2, "Rest at start", "REST_START")
-    number(box, 2, "Rest at end (min)", "REST_END", col=3)
-    number(box, 3, "Rest between cycles", "DELAY_BETWEEN")
 
     # ---- phases of the selected protocol ----
-    phase_box = section("Phases (one cycle, repeated)", 1)
+    phase_box = section("Phases", 1)
+    rest_vars = {}               # rest_start / rest_between / rest_end -> var
 
     def build_phases():
         for w in phase_box.winfo_children():
             w.destroy()
         phase_vars.clear()
-        for i, (name, dur) in enumerate(PROTOCOLS[proto_var.get()]["cycle"]):
+        rest_vars.clear()
+        proto = PROTOCOLS[proto_var.get()]
+
+        def rest_row(row, label, key):
+            ttk.Label(phase_box, text=label, width=22).grid(row=row, column=0, sticky="w")
+            rest_vars[key] = entry(phase_box, row, "duration", proto.get(key, REST_DEFAULTS[key]), "s", col=1)
+
+        rest_row(0, "Rest at start", "rest_start")
+        ttk.Label(phase_box, text="Cycle (repeated):").grid(row=1, column=0, sticky="w", pady=(6, 0))
+        for i, (name, dur) in enumerate(proto["cycle"]):
             act = ACTIONS[name]
-            ttk.Label(phase_box, text=f"{i + 1}. {first_line(act['text'])}", width=22).grid(
-                row=i, column=0, sticky="w")
-            dur_var = entry(phase_box, i, "duration", dur, "s", col=1)
+            ttk.Label(phase_box, text=f"   {i + 1}. {first_line(act['text'])}", width=22).grid(
+                row=i + 2, column=0, sticky="w")
+            dur_var = entry(phase_box, i + 2, "duration", dur, "s", col=1)
             rate_var = None
             if act["anim"] != "hold":
-                rate_var = entry(phase_box, i, "rate", act.get("rate", 12), "breaths/min", col=4)
+                rate_var = entry(phase_box, i + 2, "rate", act.get("rate", 12), "breaths/min", col=4)
             phase_vars.append((i, name, dur_var, rate_var))
+        k = len(proto["cycle"]) + 2
+        ttk.Label(phase_box, text="").grid(row=k, column=0)
+        rest_row(k + 1, "Rest between cycles", "rest_between")
+        rest_row(k + 2, "Rest at end (min)", "rest_end")
         refresh()
 
     # ---- sine curve ----
@@ -389,8 +418,8 @@ def launcher():
 
     # ---- display ----
     box = section("Display", 3)
-    number(box, 0, "Width", "SCREEN_WIDTH", int, "px")
-    number(box, 0, "Height", "SCREEN_HEIGHT", int, "px", col=3)
+    number(box, 0, "Width", "SCREEN_WIDTH", int, "px (0 = auto)")
+    number(box, 0, "Height", "SCREEN_HEIGHT", int, "px (0 = auto)", col=3)
     number(box, 1, "Screen number", "DISPLAY_INDEX", int, "(0 = main)")
     check(box, 1, "Show timer", "SHOW_TIMER", col=3)
     check(box, 2, "Fullscreen", "FULLSCREEN")
@@ -407,7 +436,12 @@ def launcher():
             if kind is not bool and value < 0:
                 raise ValueError(key)
             CONFIG[key] = value
-        cycle = PROTOCOLS[CONFIG["PROTOCOL"]]["cycle"]
+        proto = PROTOCOLS[CONFIG["PROTOCOL"]]
+        cycle = proto["cycle"]
+        for key, var in rest_vars.items():
+            proto[key] = float(var.get())
+            if proto[key] < 0:
+                raise ValueError(key)
         for i, name, dur_var, rate_var in phase_vars:
             cycle[i][1] = float(dur_var.get())
             if rate_var is not None:
@@ -416,18 +450,18 @@ def launcher():
             raise ValueError("durations must be > 0")
 
     def refresh():
-        if len(phase_vars) != len(PROTOCOLS[proto_var.get()]["cycle"]):
+        if len(phase_vars) != len(PROTOCOLS[proto_var.get()]["cycle"]) or len(rest_vars) != 3:
             return                                          # window still being built
         try:
             apply()
-            proto = PROTOCOLS[CONFIG["PROTOCOL"]]
-            tl = build_timeline(CONFIG["PROTOCOL"])
-            n = sum(s["name"] != proto["rest"] for s in tl) // len(proto["cycle"])
+            tl, n = build_timeline(CONFIG["PROTOCOL"])
+            cycle_dur = sum(d for _, d in PROTOCOLS[CONFIG["PROTOCOL"]]["cycle"])
             last = tl[-1]["end"] - tl[-1]["start"]
             if n == 0:
                 info.config(text="No complete cycle fits in the scan duration", foreground="red")
             else:
-                info.config(text=f"{n} cycle(s), final rest {last:g} s", foreground="")
+                info.config(text=f"{n} cycle(s) of {cycle_dur:g} s, rest after the last instruction: {last:g} s",
+                            foreground="")
         except (ValueError, KeyError, ZeroDivisionError):
             info.config(text="Invalid value", foreground="red")
 
@@ -478,10 +512,21 @@ def main():
 
 
 def run(protocol):
+    if sys.platform == "win32":
+        # real pixels instead of Windows display scaling (125 %, 150 % ...)
+        import ctypes
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        except (AttributeError, OSError):
+            ctypes.windll.user32.SetProcessDPIAware()
     pygame.init()
-    size = (CONFIG["SCREEN_WIDTH"], CONFIG["SCREEN_HEIGHT"])
+    desktops = pygame.display.get_desktop_sizes()
+    display = CONFIG["DISPLAY_INDEX"] if CONFIG["DISPLAY_INDEX"] < len(desktops) else 0
+    native_w, native_h = desktops[display]
+    size = (CONFIG["SCREEN_WIDTH"] or native_w, CONFIG["SCREEN_HEIGHT"] or native_h)
+    print(f"screen {display}: native {native_w}x{native_h}, using {size[0]}x{size[1]}")
     flags = pygame.FULLSCREEN if CONFIG["FULLSCREEN"] else 0
-    screen = pygame.display.set_mode(size, flags, display=CONFIG["DISPLAY_INDEX"])
+    screen = pygame.display.set_mode(size, flags, display=display)
     pygame.display.set_caption("MRI instructions")
     pygame.mouse.set_visible(False)
     canvas = pygame.Surface(screen.get_size())
@@ -514,7 +559,7 @@ def run(protocol):
         present()
         clock.tick(CONFIG["FPS"])
 
-    timeline = build_timeline(protocol)
+    timeline, _ = build_timeline(protocol)
     rnd.curve = BreathCurve(timeline)
     t0 = time.perf_counter()
     log, idx, aborted = [], -1, False

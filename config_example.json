@@ -3,12 +3,9 @@
     "PROTOCOL": "breathhold",
     "SHOW_LAUNCHER": true,
     "SCAN_DURATION": 300,
-    "REST_START": 30,
-    "REST_END": 30,
-    "DELAY_BETWEEN": 0,
     "WARNING_TIME": 5,
-    "SCREEN_WIDTH": 1920,
-    "SCREEN_HEIGHT": 1080,
+    "SCREEN_WIDTH": 0,
+    "SCREEN_HEIGHT": 0,
     "FULLSCREEN": true,
     "DISPLAY_INDEX": 0,
     "MIRROR": false,
@@ -124,23 +121,27 @@
   "PROTOCOLS": {
     "breathhold": {
       "rest": "rest",
+      "rest_start": 30,
       "cycle": [
         [
-          "normal",
-          20
-        ],
-        [
           "fast",
-          20
+          10
         ],
         [
           "hold",
           20
+        ],
+        [
+          "rest",
+          30
         ]
-      ]
+      ],
+      "rest_between": 0,
+      "rest_end": 30
     },
     "paced": {
       "rest": "paced_rest",
+      "rest_start": 30,
       "cycle": [
         [
           "paced_fast",
@@ -154,7 +155,9 @@
           "paced_slow",
           20
         ]
-      ]
+      ],
+      "rest_between": 0,
+      "rest_end": 30
     }
   }
 }

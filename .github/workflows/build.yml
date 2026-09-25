@@ -1,6 +1,6 @@
-# Builds MRI_instructions for Windows and macOS on GitHub's machines.
+# Builds MRI_instructions for Windows (.exe) and macOS (.app) on GitHub's machines.
 # Push this folder to a GitHub repo, then: Actions tab -> "build" -> Run workflow
-# (also runs on every push). Download the executables from the run's "Artifacts".
+# (also runs on every push). Download the results from the run's "Artifacts".
 name: build
 on:
   push:
@@ -11,15 +11,21 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt
-      - run: pyinstaller --noconfirm --clean --onefile --windowed --name MRI_instructions animation.py
-      - run: cp config_example.json dist/
-        shell: bash
+      - run: ./build.sh
+        env:
+          PYTHON: python
+      # zip the .app with ditto so macOS permissions survive the artifact upload
+      - if: runner.os == 'macOS'
+        run: cd dist && ditto -c -k --keepParent MRI_instructions.app MRI_instructions_mac.zip && rm -rf MRI_instructions.app
       - uses: actions/upload-artifact@v4
         with:
           name: MRI_instructions-${{ runner.os }}
