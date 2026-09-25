@@ -1,0 +1,160 @@
+{
+  "CONFIG": {
+    "PROTOCOL": "breathhold",
+    "SHOW_LAUNCHER": true,
+    "SCAN_DURATION": 300,
+    "REST_START": 30,
+    "REST_END": 30,
+    "DELAY_BETWEEN": 0,
+    "WARNING_TIME": 5,
+    "SCREEN_WIDTH": 1920,
+    "SCREEN_HEIGHT": 1080,
+    "FULLSCREEN": true,
+    "DISPLAY_INDEX": 0,
+    "MIRROR": false,
+    "START_STOP_KEYS": [
+      "s",
+      "space"
+    ],
+    "SHOW_TIMER": true,
+    "FPS": 60,
+    "BACKGROUND": [
+      255,
+      255,
+      255
+    ],
+    "TEXT_COLOR": [
+      30,
+      30,
+      30
+    ],
+    "WARNING_COLOR": [
+      230,
+      130,
+      0
+    ],
+    "LOG": true,
+    "SINE_WINDOW": 12,
+    "SINE_DOT_X": 0.3,
+    "SINE_AMPLITUDE": 0.2,
+    "SINE_RAMP": 2.0,
+    "SHOW_IN_OUT": true
+  },
+  "ACTIONS": {
+    "rest": {
+      "text": "RELAX\nbreathe freely",
+      "anim": "circle",
+      "rate": 12,
+      "color": [
+        60,
+        160,
+        110
+      ]
+    },
+    "normal": {
+      "text": "BREATHE NORMALLY",
+      "anim": "circle",
+      "rate": 12,
+      "color": [
+        40,
+        110,
+        200
+      ]
+    },
+    "fast": {
+      "text": "BREATHE FAST",
+      "anim": "circle",
+      "rate": 30,
+      "color": [
+        220,
+        120,
+        0
+      ]
+    },
+    "hold": {
+      "text": "HOLD YOUR BREATH",
+      "anim": "hold",
+      "color": [
+        210,
+        50,
+        50
+      ]
+    },
+    "paced_rest": {
+      "text": "RELAX\nbreathe freely",
+      "anim": "sine",
+      "rate": 0,
+      "color": [
+        60,
+        160,
+        110
+      ]
+    },
+    "paced_fast": {
+      "text": "BREATHE FAST",
+      "anim": "sine",
+      "rate": 30,
+      "color": [
+        220,
+        120,
+        0
+      ]
+    },
+    "paced_normal": {
+      "text": "BREATHE NORMALLY",
+      "anim": "sine",
+      "rate": 12,
+      "color": [
+        40,
+        110,
+        200
+      ]
+    },
+    "paced_slow": {
+      "text": "BREATHE SLOWLY",
+      "anim": "sine",
+      "rate": 6,
+      "color": [
+        130,
+        60,
+        180
+      ]
+    }
+  },
+  "PROTOCOLS": {
+    "breathhold": {
+      "rest": "rest",
+      "cycle": [
+        [
+          "normal",
+          20
+        ],
+        [
+          "fast",
+          20
+        ],
+        [
+          "hold",
+          20
+        ]
+      ]
+    },
+    "paced": {
+      "rest": "paced_rest",
+      "cycle": [
+        [
+          "paced_fast",
+          20
+        ],
+        [
+          "paced_normal",
+          20
+        ],
+        [
+          "paced_slow",
+          20
+        ]
+      ]
+    }
+  }
+}
