@@ -35,129 +35,74 @@
     "SINE_DOT_X": 0.3,
     "SINE_AMPLITUDE": 0.2,
     "SINE_RAMP": 2.0,
+    "EXHALE_TIME": 3.0,
     "SHOW_IN_OUT": true
-  },
-  "ACTIONS": {
-    "rest": {
-      "text": "RELAX\nbreathe freely",
-      "anim": "circle",
-      "rate": 12,
-      "color": [
-        60,
-        160,
-        110
-      ]
-    },
-    "normal": {
-      "text": "BREATHE NORMALLY",
-      "anim": "circle",
-      "rate": 12,
-      "color": [
-        40,
-        110,
-        200
-      ]
-    },
-    "fast": {
-      "text": "BREATHE FAST",
-      "anim": "circle",
-      "rate": 30,
-      "color": [
-        220,
-        120,
-        0
-      ]
-    },
-    "hold": {
-      "text": "HOLD YOUR BREATH",
-      "anim": "hold",
-      "color": [
-        210,
-        50,
-        50
-      ]
-    },
-    "paced_rest": {
-      "text": "RELAX\nbreathe freely",
-      "anim": "sine",
-      "rate": 0,
-      "color": [
-        60,
-        160,
-        110
-      ]
-    },
-    "paced_fast": {
-      "text": "BREATHE FAST",
-      "anim": "sine",
-      "rate": 30,
-      "color": [
-        220,
-        120,
-        0
-      ]
-    },
-    "paced_normal": {
-      "text": "BREATHE NORMALLY",
-      "anim": "sine",
-      "rate": 12,
-      "color": [
-        40,
-        110,
-        200
-      ]
-    },
-    "paced_slow": {
-      "text": "BREATHE SLOWLY",
-      "anim": "sine",
-      "rate": 6,
-      "color": [
-        130,
-        60,
-        180
-      ]
-    }
   },
   "PROTOCOLS": {
     "breathhold": {
-      "rest": "rest",
-      "rest_start": 30,
+      "guide": "circle",
+      "rest_start": {
+        "name": "RELAX\nbreathe freely",
+        "time": 30,
+        "freq": 0
+      },
       "cycle": [
-        [
-          "fast",
-          10
-        ],
-        [
-          "hold",
-          20
-        ],
-        [
-          "rest",
-          30
-        ]
+        {
+          "type": "breath",
+          "name": "BREATHE FAST",
+          "time": 10,
+          "freq": 30
+        },
+        {
+          "type": "hold",
+          "name": "HOLD YOUR BREATH",
+          "time": 20
+        },
+        {
+          "type": "breath",
+          "name": "RELAX\nbreathe freely",
+          "time": 30,
+          "freq": 0
+        }
       ],
-      "rest_between": 0,
-      "rest_end": 30
+      "rest_end": {
+        "name": "RELAX\nbreathe freely",
+        "time": 30,
+        "freq": 0
+      }
     },
     "paced": {
-      "rest": "paced_rest",
-      "rest_start": 30,
+      "guide": "sine",
+      "rest_start": {
+        "name": "RELAX\nbreathe freely",
+        "time": 30,
+        "freq": 0
+      },
       "cycle": [
-        [
-          "paced_fast",
-          20
-        ],
-        [
-          "paced_normal",
-          20
-        ],
-        [
-          "paced_slow",
-          20
-        ]
+        {
+          "type": "breath",
+          "name": "BREATHE FAST",
+          "time": 20,
+          "freq": 30
+        },
+        {
+          "type": "breath",
+          "name": "BREATHE NORMALLY",
+          "time": 20,
+          "freq": 12
+        },
+        {
+          "type": "breath",
+          "name": "BREATHE SLOWLY",
+          "time": 20,
+          "freq": 6
+        }
       ],
-      "rest_between": 0,
-      "rest_end": 30
+      "rest_end": {
+        "name": "RELAX\nbreathe freely",
+        "time": 30,
+        "freq": 0
+      }
     }
   }
 }
